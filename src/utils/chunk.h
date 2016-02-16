@@ -26,8 +26,14 @@
 #include <stddef.h>
 #include "int.h"
 
+/*  Signature of the chunk free function */
+typedef void (*nn_chunk_free_fn) (void *p);
+
 /*  Allocates the chunk using the allocation mechanism specified by 'type'. */
 int nn_chunk_alloc (size_t size, int type, void **result);
+
+/*  Allocates the chunk with existing data and free function */
+int nn_chunk_alloc_ptr ( void * data, size_t size, nn_chunk_free_fn ffn, void **result);
 
 /*  Resizes a chunk previously allocated with nn_chunk_alloc. */
 int nn_chunk_realloc (size_t size, void **chunk);

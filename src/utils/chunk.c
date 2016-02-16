@@ -31,9 +31,8 @@
 #include <string.h>
 
 #define NN_CHUNK_TAG 0xdeadcafe
+#define NN_CHUNK_TAG_PTR 0xdeadd00d
 #define NN_CHUNK_TAG_DEALLOCATED 0xbeadfeed
-
-typedef void (*nn_chunk_free_fn) (void *p);
 
 struct nn_chunk {
 
@@ -92,6 +91,37 @@ int nn_chunk_alloc (size_t size, int type, void **result)
     nn_putl ((uint8_t*) ((((uint32_t*) (self + 1))) + 1), NN_CHUNK_TAG);
 
     *result = nn_chunk_getdata (self);
+    return 0;
+}
+
+int nn_chunk_alloc_ptr ( void * data, size_t size, nn_chunk_free_fn ffn, void **result)
+{
+    size_t sz;
+    struct nn_chunk *self;
+    const size_t hdrsz = nn_chunk_hdrsize ();
+
+    /*  Allocate the actual memory depending on the type. */
+    self = nn_alloc ( (hdrsz + sizeof(void *)) , "pointer message chunk");
+    if (nn_slow (!self))
+        return -ENOMEM;
+
+    /*  Fill in the chunk header. */
+    nn_atomic_init (&self->refcount, 1);
+    self->size = size;
+    self->ffn = ffn;
+
+
+    /*  Fill in the size of the empty space between the chunk header
+        and the message. */
+    nn_putl ((uint8_t*) ((uint32_t*) (self + 1)), 0);
+
+    /*  Fill in the ptr tag to differentiate from NN_CHUNK_TAG. */
+    nn_putl ((uint8_t*) ((((uint32_t*) (self + 1))) + 1), NN_CHUNK_TAG_PTR);
+
+    /*  Place contained pointer on the data region */
+    *result = nn_chunk_getdata (self);
+    memcpy( *result, &data, sizeof(void*) );
+
     return 0;
 }
 
