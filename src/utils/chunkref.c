@@ -113,7 +113,7 @@ void nn_chunkref_cp (struct nn_chunkref *dst, struct nn_chunkref *src)
 void *nn_chunkref_data (struct nn_chunkref *self)
 {
     return self->u.ref [0] == 0xff ?
-        ((struct nn_chunkref_chunk*) self)->chunk :
+        nn_chunk_deref( ((struct nn_chunkref_chunk*) self)->chunk ) :
         &self->u.ref [1];
 }
 

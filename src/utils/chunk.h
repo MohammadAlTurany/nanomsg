@@ -26,8 +26,18 @@
 #include <stddef.h>
 #include "int.h"
 
+/*  Signature of the chunk deallocator function */
+typedef void (*nn_chunk_free_fn) (void *p);
+
 /*  Allocates the chunk using the allocation mechanism specified by 'type'. */
 int nn_chunk_alloc (size_t size, int type, void **result);
+
+/*  Allocates the chunk with existing data destructor callback */
+int nn_chunk_alloc_ptr ( void * data, size_t size, nn_chunk_free_fn destructor, 
+    void **result);
+
+/*  Dereference the chunk if this is a pointer chunk, otherwise return p */
+void *nn_chunk_deref (void *p);
 
 /*  Resizes a chunk previously allocated with nn_chunk_alloc. */
 int nn_chunk_realloc (size_t size, void **chunk);
