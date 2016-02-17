@@ -26,6 +26,21 @@
 #include <stddef.h>
 #include "int.h"
 
+/* Chunk description used for memory management */
+struct nn_chunk_desc {
+
+    /* Base pointer to the allocated memory region */
+    void * base;
+
+    /* Length of the allocated buffer */
+    size_t len;
+
+    /* Validation tag that changes every time the pointer is
+       re-allocated */
+    uint32_t tag;
+
+};
+
 /*  Signature of the chunk deallocator function */
 typedef void (*nn_chunk_free_fn) (void *p);
 
@@ -38,6 +53,9 @@ int nn_chunk_alloc_ptr ( void * data, size_t size, nn_chunk_free_fn destructor,
 
 /*  Dereference the chunk if this is a pointer chunk, otherwise return p */
 void *nn_chunk_deref (void *p);
+
+/*  Get a description of the specified chunk */
+int nn_chunk_describe(void *p, struct nn_chunk_desc *d);
 
 /*  Resizes a chunk previously allocated with nn_chunk_alloc. */
 int nn_chunk_realloc (size_t size, void **chunk);

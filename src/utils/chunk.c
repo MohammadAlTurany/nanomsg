@@ -254,7 +254,6 @@ void nn_chunk_addref (void *p, uint32_t n)
     nn_atomic_inc (&self->refcount, n);
 }
 
-
 size_t nn_chunk_size (void *p)
 {
     return nn_chunk_getptr (p)->size;
@@ -300,6 +299,11 @@ void *nn_chunk_trim (void *p, size_t n)
     self->size -= n;
 
     return p;
+}
+
+int nn_chunk_describe(void *p, struct nn_chunk_desc *d)
+{
+        
 }
 
 static struct nn_chunk *nn_chunk_getptr (void *p)
