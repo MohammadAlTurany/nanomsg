@@ -1,5 +1,6 @@
 /*
     Copyright (c) 2013 Martin Sustrik  All rights reserved.
+    Copyright (c) 2016 Ioannis Charalampidis All rights reserved.
 
     Permission is hereby granted, free of charge, to any person obtaining a copy
     of this software and associated documentation files (the "Software"),
@@ -26,18 +27,15 @@
 #include <stddef.h>
 #include "int.h"
 
-/* Chunk description used for memory management */
+/* Chunk description used by memory management utilities.
+   This is intented to be used by the OFI transport for memory registration. */
 struct nn_chunk_desc {
 
-    /* Base pointer to the allocated memory region */
+    /* Base pointer to the data buffer */
     void * base;
 
-    /* Length of the allocated buffer */
+    /* Length of the buffer */
     size_t len;
-
-    /* Validation tag that changes every time the pointer is
-       re-allocated */
-    uint32_t tag;
 
 };
 

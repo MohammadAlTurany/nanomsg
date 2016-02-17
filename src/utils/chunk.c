@@ -1,6 +1,7 @@
 /*
     Copyright (c) 2013 Martin Sustrik  All rights reserved.
     Copyright (c) 2014 Achille Roussel All rights reserved.
+    Copyright (c) 2016 Ioannis Charalampidis All rights reserved.
 
     Permission is hereby granted, free of charge, to any person obtaining a copy
     of this software and associated documentation files (the "Software"),
@@ -54,6 +55,8 @@ struct nn_chunk {
         the message data itself. */
 };
 
+/*  This structure is used in place of data when the nn_chunk is keeping
+    the reference to a user pointer, constructed with nn_chunk_alloc_ptr. */
 struct nn_chunk_ptr {
 
     /* The pointer to the data being addressed */
@@ -132,12 +135,12 @@ int nn_chunk_alloc_ptr ( void * data, size_t size, nn_chunk_free_fn destructor,
     struct nn_chunk_ptr *ptr_chunk;
     struct nn_chunk *self;
 
-    /* Create new chunk */
+    /* Create new user-pointer chunk */
     ret = nn_chunk_new(sizeof(struct nn_chunk_ptr), 0, NN_CHUNK_TAG_PTR, &self);
     if (ret)
         return ret;
 
-    /* Update properties */
+    /* Re-use size field since it's otherwise useless */
     self->size = size;
 
     /* Update chunk pointer properties */
@@ -169,7 +172,7 @@ int nn_chunk_realloc (size_t size, void **chunk)
     size_t new_size;
     int rc;
 
-    /* We cannot re-alloc user-provided pointer */
+    /* We cannot re-alloc user-pointers */
     if (nn_slow( nn_getl(NN_CHUNK_TAG_OFFSET(*chunk)) == NN_CHUNK_TAG_PTR ))
         return -EINVAL;
 
@@ -223,10 +226,10 @@ void nn_chunk_free (void *p)
         it drops to zero. */
     if (nn_atomic_dec (&self->refcount, 1) <= 1) {
 
-        /* Call user destructor when using chunk pointers */
+        /* Call user destructor when using user-pointers */
         if ( nn_getl(NN_CHUNK_TAG_OFFSET(p)) == NN_CHUNK_TAG_PTR ) {
 
-            /* Get pointer to the beginning of user's pointer */
+            /* Get base address of user pointer without offset */
             off = nn_getl( NN_CHUNK_SIZE_OFFSET(p) );
             ((struct nn_chunk_ptr *) p)->destructor(
                     (uint8_t*)((struct nn_chunk_ptr *) p)->ptr - off
@@ -291,7 +294,7 @@ void *nn_chunk_trim (void *p, size_t n)
         nn_putl ((uint8_t*) (((uint32_t*) p) - 1), NN_CHUNK_TAG);
         empty_space = (uint8_t*) p - (uint8_t*) self - hdrsz;
         nn_assert(empty_space < UINT32_MAX);
-        nn_putl ((uint8_t*) (((uint32_t*) p) - 2), (uint32_t) empty_space);
+        nn_putl ( NN_CHUNK_SIZE_OFFSET(p), (uint32_t) empty_space);
 
     }
 
@@ -303,7 +306,30 @@ void *nn_chunk_trim (void *p, size_t n)
 
 int nn_chunk_describe(void *p, struct nn_chunk_desc *d)
 {
-        
+    uint32_t tag;
+    uint32_t off;
+    struct nn_chunk * chunk;
+
+    /* Validate tag */
+    tag = nn_getl(NN_CHUNK_TAG_OFFSET(p));
+    nn_assert ( (tag == NN_CHUNK_TAG) || (tag == NN_CHUNK_TAG_PTR) );
+
+    /* Get offset */
+    off = nn_getl( NN_CHUNK_SIZE_OFFSET(p) );
+    chunk = (struct  nn_chunk*) ((uint8_t*) p - 2 *sizeof (uint32_t) - off -
+        sizeof (struct nn_chunk));
+
+    /* Get base address to the data no matter what's the white space */
+    if ( tag == NN_CHUNK_TAG_PTR ) {
+        d->base = ((uint8_t*) ((struct nn_chunk_ptr *) p)->ptr) - off;
+        d->len = chunk->size + off;
+    } else {
+        d->base = ((uint8_t*) p) - off;
+        d->len = chunk->size + off;
+    }
+
+    /* Success */
+    return 0;
 }
 
 static struct nn_chunk *nn_chunk_getptr (void *p)
@@ -321,7 +347,6 @@ static struct nn_chunk *nn_chunk_getptr (void *p)
         off = nn_getl( NN_CHUNK_SIZE_OFFSET(p) );
     }
 
-    /* Go all the way up to the head */
     return (struct  nn_chunk*) ((uint8_t*) p - 2 *sizeof (uint32_t) - off -
         sizeof (struct nn_chunk));
 }
