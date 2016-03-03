@@ -82,14 +82,14 @@ void *nn_chunkref_getchunk (struct nn_chunkref *self)
 
     if (self->u.ref [0] == 0xff) {
         ch = (struct nn_chunkref_chunk*) self;
-        self->u.ref [0] = 0;
+        // self->u.ref [0] = 0;
         return ch->chunk;
     }
 
     rc = nn_chunk_alloc (self->u.ref [0], 0, &chunk);
     errno_assert (rc == 0);
     memcpy (chunk, &self->u.ref [1], self->u.ref [0]);
-    self->u.ref [0] = 0;
+    // self->u.ref [0] = 0;
     return chunk;
 }
 
