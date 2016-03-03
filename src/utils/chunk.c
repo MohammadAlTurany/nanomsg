@@ -36,8 +36,11 @@
 #define NN_CHUNK_TAG_DEALLOCATED 0xbeadfeed
 
 /* Helper functions to access properties out of the structure */
-#define NN_CHUNK_TAG_OFFSET(p) ((uint8_t*) p - sizeof (uint32_t))
-#define NN_CHUNK_SIZE_OFFSET(p) ((uint8_t*) p - 2 * sizeof (uint32_t))
+#define NN_CHUNK_TAG_OFFSET(p) (uint8_t*) p - sizeof (uint32_t)
+#define NN_CHUNK_SIZE_OFFSET(p) (uint8_t*) p - 2 * sizeof (uint32_t)
+
+/* Last assigned chunk id */
+uint32_t nn_last_chunk_id = 0;
 
 struct nn_chunk {
 
@@ -46,6 +49,9 @@ struct nn_chunk {
 
     /*  Size of the message in bytes. */
     size_t size;
+
+    /* Unique ID of the chunk, used by memory */
+    uint32_t id;
 
     /*  Deallocation function. */
     nn_chunk_free_fn ffn;
@@ -73,7 +79,7 @@ static void *nn_chunk_getdata (struct nn_chunk *c);
 static void nn_chunk_default_free (void *p);
 static size_t nn_chunk_hdrsize ();
 
-static int nn_chunk_new (size_t size, int type, int tag, 
+static int nn_chunk_new (size_t size, int type, uint32_t tag, 
     struct nn_chunk ** result)
 {
     size_t sz;
@@ -99,6 +105,7 @@ static int nn_chunk_new (size_t size, int type, int tag,
     /*  Fill in the chunk header. */
     nn_atomic_init (&self->refcount, 1);
     self->size = size;
+    self->id = nn_last_chunk_id++;
     self->ffn = nn_chunk_default_free;
 
     /*  Fill in the size of the empty space between the chunk header
@@ -140,7 +147,8 @@ int nn_chunk_alloc_ptr ( void * data, size_t size, nn_chunk_free_fn destructor,
     if (ret)
         return ret;
 
-    /* Re-use size field since it's otherwise useless */
+    /* Re-use size field since it's otherwise useless, since the size
+       of the data we carry is always `sizeof(void *)` */
     self->size = size;
 
     /* Update chunk pointer properties */
@@ -155,7 +163,7 @@ int nn_chunk_alloc_ptr ( void * data, size_t size, nn_chunk_free_fn destructor,
 
 void *nn_chunk_deref ( void *p)
 {
-    /* Prioritize de-referencing */
+    /* Prioritize de-referencing of pointer */
     if (nn_fast( nn_getl( NN_CHUNK_TAG_OFFSET(p) ) == NN_CHUNK_TAG_PTR )) {
         return ((struct nn_chunk_ptr *) p)->ptr;
     } else {
@@ -318,6 +326,9 @@ int nn_chunk_describe(void *p, struct nn_chunk_desc *d)
     off = nn_getl( NN_CHUNK_SIZE_OFFSET(p) );
     chunk = (struct  nn_chunk*) ((uint8_t*) p - 2 *sizeof (uint32_t) - off -
         sizeof (struct nn_chunk));
+
+    /* Get ID */
+    d->id = chunk->id;
 
     /* Get base address to the data no matter what's the white space */
     if ( tag == NN_CHUNK_TAG_PTR ) {

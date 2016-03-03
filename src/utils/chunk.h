@@ -37,6 +37,9 @@ struct nn_chunk_desc {
     /* Length of the buffer */
     size_t len;
 
+    /* ID of the buffer */
+    uint32_t id;
+
 };
 
 /*  Signature of the chunk deallocator function */
